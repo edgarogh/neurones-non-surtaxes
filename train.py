@@ -4,13 +4,13 @@ import sys
 from random import random
 from typing import List, Tuple
 
-from dataset import TokenSet, dictionary, get_tokens, pairs
+from dataset import pairs, tokenizer
 from neural_network import create_nn, weights_length
 from tailrec import recurse, tail_recursive
+from tokenizer import Tokenizer, TokenSet
 
 # [Input layer, Intermediary layer 1, ..., Output layer]
-nn_layout = [len(dictionary), 6, 8, len(dictionary)]
-nn_layout = [len(dictionary), 6, 8, len(dictionary)]
+nn_layout = [tokenizer.dictionary_size, 6, 8, 1]
 
 
 def wrap_nn(call_nn, dictionary: list):
@@ -37,15 +37,11 @@ weights = [0] * weights_length(nn_layout)
 call_nn = create_nn(nn_layout, weights)
 
 
-print("Dataset size: {}; Dictionary size: {}; Nodes: {}; Connections: {}".format(len(pairs), len(dictionary), sum(nn_layout), weights_length(nn_layout)))
+print("Dataset size: {}; Dictionary size: {}; Nodes: {}; Connections: {}".format(len(pairs), tokenizer.dictionary_size, sum(nn_layout), weights_length(nn_layout)))
 
 
 def transform_weight(x: float) -> float:
     return x ** 2.0
-
-
-bzh = dictionary.index('breton')
-fr = dictionary.index('français')
 
 
 def calc_fitness(call_nn):
@@ -53,29 +49,16 @@ def calc_fitness(call_nn):
     total = 0.0
 
     for (given, expected) in pairs:
-        input_layer = [1.0 if index in given else -1.0 for index in range(len(dictionary))]
+        input_layer = tokenizer.input_layer_of_sentence(given)
         output_layer = call_nn(input_layer)
-        tokens = [(dictionary[i], weight) for (i, weight) in enumerate(output_layer)]
 
-        bExpected = expected[0] == bzh
+        value = output_layer[0]
+        bExpected = expected
 
-        _, b = tokens[bzh]
-        _, f = tokens[fr]
-
-        b += 1
-        f += 1
-
-        b /= 2
-        f /= 2
-
-        delta = abs(b - f)
-
-        bFound = b > f
-
-        if bFound == bExpected:
-            total += delta
+        if bExpected:
+            total += value
         else:
-            total += -delta
+            total -= value
 
     return total
 
@@ -104,7 +87,7 @@ best_fitness, best_weights = train(10, 500, create_nn, weights, float('-inf'))
 print("Best fitness: " + str(best_fitness))
 
 data = {
-    "dictionary": dictionary,
+    "dictionary": tokenizer.export_dictionary(),
     "layout": nn_layout,
     "weights": best_weights,
 }

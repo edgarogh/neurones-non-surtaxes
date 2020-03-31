@@ -1,40 +1,33 @@
 import pickle
 import sys
 
-from dataset import get_tokens
 from neural_network import create_nn
-
-sentence = ' '.join(sys.argv[1:])
-tokens = get_tokens(sentence)
+from tokenizer import Tokenizer
 
 data = pickle.load(open('model.bin', 'rb'))
-dictionary = data["dictionary"]
 layout = data["layout"]
 weights = data["weights"]
+
+tokenizer = Tokenizer(data["dictionary"])
+
+sentence = ' '.join(sys.argv[1:])
 
 call_nn = create_nn(layout, weights)
 
 
-def wrap_nn(call_nn, dictionary: list):
-    def call(tokens: list):
-        input_layer = [1.0 if index in tokens else -
-                       1.0 for index in range(len(dictionary))]
+def wrap_nn(call_nn, tokenizer: Tokenizer):
+    def call(sentence: str):
+        input_layer = tokenizer.input_layer_of_sentence(sentence)
         output_layer = call_nn(input_layer)
-        returned_tokens = [(dictionary[i], weight)
-                           for (i, weight) in enumerate(output_layer)]
-        return returned_tokens
+        return output_layer[0]
 
     return call
 
 
-sentence_nn = wrap_nn(call_nn, dictionary)
+sentence_nn = wrap_nn(call_nn, tokenizer)
 
-output = sentence_nn(tokens)
+output = sentence_nn(sentence)
 
-bzh = dictionary.index('breton')
-fr = dictionary.index('français')
+bzh = output > 0
 
-_, b = output[bzh]
-_, f = output[fr]
-
-print(sentence + ': ' + ('Breton' if b > f else 'Français'))
+print(sentence + ': ' + ('Breton' if bzh else 'Français'))
